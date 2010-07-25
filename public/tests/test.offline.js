@@ -8,7 +8,7 @@ var setup = function(next) {
   $.get("/reset", function() { next(); });
 }
 
-var baseTest = function( next, data, obj ) {
+  var baseTest = function( next, data, obj, requestType ) {
   var cached = null;
 
   if(obj === true || obj === false) obj = { start: obj };
@@ -20,6 +20,7 @@ var baseTest = function( next, data, obj ) {
 
   var successCount = expectCached ? (count + 1) : count;
 
+  if(requestType === undefined || requestType == 'json') {
   $.retrieveJSON("/ajax/app", data, function( json, text, flag ) {
     if(text == "success") {
       if(obj.successFlag) {
@@ -52,6 +53,42 @@ var baseTest = function( next, data, obj ) {
       return obj.returnValue;
     }
   });
+  } else {
+
+$.retrieveGet("/ajax/app", data, function( json, text, flag ) {
+    if(text == "success") {
+      if(obj.successFlag) {
+        ok( flag && flag.cachedAt, "a follow-up request should have the cache time" );
+        ok( flag && flag.retrievedAt, "a follow-up request should have the retrieve time" );
+      }
+
+      var countSucc = (count || 1) + 1;
+      deepEqual( json, { count: successCount, qs: $.param(data || {}) },
+        "retrieveJSON with '" + $.param( data ) + "' should get JSON" );
+
+      if(expectCached) {
+        equal("cached", cached, "retrieveJSON should hit the cache " +
+          "before hitting the app")
+      }
+
+      if(toStart) start();
+      else next();
+    } else if(text == "cached") {
+      if(obj.cachedFlag) {
+        ok( flag && flag.cachedAt, "a cache hit should have the cache time" )
+      }
+      
+      cached = text;
+      deepEqual( json, { count: count, qs: $.param(data || {}) },
+        "retrieveJSON with '" + $.param( data ) + "' should get JSON" );
+
+      if(obj.returnValue === false) { setTimeout(function() { start() }, 100); }
+
+      return obj.returnValue;
+    }
+  });
+
+  }
 }
 
 if( $.support.localStorage ) {
@@ -63,6 +100,14 @@ if( $.support.localStorage ) {
     });
   });
 
+  asyncTest("the first time, get hits the server", 1, function() {
+    $(document).dequeue().queue(function(next) {
+      setup(next);
+    }).queue(function(next) {
+	baseTest(next, {}, { start: true, cached: false },'get');
+    });
+  });
+
   asyncTest("the second time, it gets additional data in the callback", function() {
     $(document).dequeue().queue(function(next) {
       setup(next);
@@ -70,6 +115,16 @@ if( $.support.localStorage ) {
       baseTest(next, {}, { cached: false });
     }).queue(function(next) {
       baseTest(next, {}, { start: true, cached: true, successFlag: true, cachedFlag: true })
+    });
+  });
+
+  asyncTest("the second time get, it gets additional data in the callback", function() {
+    $(document).dequeue().queue(function(next) {
+      setup(next);
+    }).queue(function(next) {
+      baseTest(next, {}, { cached: false });
+    }).queue(function(next) {
+	baseTest(next, {}, { start: true, cached: true, successFlag: true, cachedFlag: true }, 'get')
     });
   });
 
@@ -94,6 +149,20 @@ if( $.support.localStorage ) {
       baseTest(next, {}, { cached: false });
     }).queue(function(next) {
       baseTest(next, {}, { start: true, cached: true, returnValue: false });
+    });
+  });
+
+  asyncTest("if you return false, get doesn't make an Ajax request", function() {
+    // Use an expectation assertion here to confirm that the Ajax request
+    // doesn't run. If it did, we would have two more assertions.
+    expect(2);
+
+    $(document).dequeue().queue(function(next) {
+      setup(next);
+    }).queue(function(next) {
+      baseTest(next, {}, { cached: false });
+    }).queue(function(next) {
+	baseTest(next, {}, { start: true, cached: true, returnValue: false }, 'get');
     });
   });
 
@@ -148,6 +217,14 @@ if( $.support.localStorage ) {
     });
   });
 
+  asyncTest("the first time, get hits the server", 1, function() {
+    $(document).dequeue().queue(function(next) {
+      setup(next);
+    }).queue(function(next) {
+	baseTest(next, {}, true, 'get');
+    });
+  });
+
   asyncTest("the second time, it still hits the server", function() {
     $(document).dequeue().queue(function(next) {
       setup(next);
@@ -155,6 +232,16 @@ if( $.support.localStorage ) {
       baseTest(next, {});
     }).queue(function(next) {
       baseTest(next, {}, { start: true, count: 2 })
+    });
+  });
+
+  asyncTest("the second time, get still hits the server", function() {
+    $(document).dequeue().queue(function(next) {
+      setup(next);
+    }).queue(function(next) {
+      baseTest(next, {});
+    }).queue(function(next) {
+	baseTest(next, {}, { start: true, count: 2 }, 'get')
     });
   });
 
