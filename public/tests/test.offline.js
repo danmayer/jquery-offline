@@ -79,8 +79,8 @@ $.retrieveGet("/ajax/app", data, function( json, text, flag ) {
       }
       
       cached = text;
-      deepEqual( json, { count: count, qs: $.param(data || {}) },
-        "retrieveJSON with '" + $.param( data ) + "' should get JSON" );
+      deepEqual( $.parseJSON(json), { count: count, qs: $.param(data || {}) },
+        "retrieveGet with '" + $.param( data ) + "' should get Data" );
 
       if(obj.returnValue === false) { setTimeout(function() { start() }, 100); }
 
@@ -118,7 +118,7 @@ if( $.support.localStorage ) {
     });
   });
 
-  asyncTest("the second time get, it gets additional data in the callback", function() {
+  asyncTest("the second time retrieveGet, it gets additional data in the callback", function() {
     $(document).dequeue().queue(function(next) {
       setup(next);
     }).queue(function(next) {
